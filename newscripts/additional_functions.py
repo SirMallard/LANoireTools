@@ -2,7 +2,7 @@ from dictionaries import CRC32_KEY
 import zlib
 
 # Get hash value from string (file path. The hash value can be obtained from the name of the entry files (obtained from BigPC Unpacker))
-def file_path_hash(file_path_value): 
+def file_path_hash(file_path_value: str): 
     file_path_value = file_path_value.lower()
     print('{} => 0x{:08x}'.format(file_path_value, zlib.crc32(file_path_value.encode()) & 0xffffffff))
 
@@ -21,7 +21,7 @@ def get_crc_from_string(string_value: str) -> int:
 
 # Loop that I use to quickly write dictionaries that are based on a name with XML
 def convert_to_dictionary():
-    my_bytes = list()
+    my_bytes: list[str] = list()
     while True:
         input_string = input("Input': ")
         if input_string == '0' or input_string == '':
