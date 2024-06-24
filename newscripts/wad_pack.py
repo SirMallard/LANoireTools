@@ -82,7 +82,7 @@ with open(WAD_ARCHIVE, "wb") as wad_file:
 		size: int = getsize(path)
 		file_data["offset"] = offset
 		file_data["size"] = size
-		writer.write_uint32(file_data["name_crc"])
+		writer.write_uint32(file_data["hash"])
 		writer.write_uint32(file_data["offset"])
 		writer.write_uint32(file_data["size"])
 		offset += size

@@ -14,7 +14,7 @@ QWORD_SIZE = 8
 
 LANGUAGE_COUNT = 7
 
-toPrintObjects = True # better comment 355-356
+toPrintObjects = False # better comment 355-356
 
 OBJECT_TYPES_DEFAULT = 'Object'
 
@@ -190,7 +190,7 @@ def read_object_variable(file: BufferedReader, data_address: int, father_element
 	real_size = SIZE_DICT[var_size]
 
 	if IS_SIZE_PTR_DICT[var_size]: # CHECKING IS IT A STRING
-		real_size = int.from_bytes(read_bytes(file, data_address, WORD_SIZE), byteorder='little')
+		real_size = int.from_bytes(read_bytes(file, data_address, WORD_SIZE), byteorder='little', signed=True)
 
 		if (real_size != 0xFFFF) and (real_size != 0x0000): 
 			result_value, data_address = get_string(file, data_address, WORD_SIZE)
@@ -207,7 +207,7 @@ def read_object_variable(file: BufferedReader, data_address: int, father_element
 		result_value = read_bytes(file, data_address, real_size)
 		data_address += real_size 
 
-		if var_size == 0x46 or (var_size == 30 and int.from_bytes(result_value, byteorder='little')):
+		if var_size == 70 or (var_size == 30 and int.from_bytes(result_value, byteorder='little')):
 			object_value = '0x' + ''.join([f'{b:02x}' for b in result_value]) 
 
 			if result_value in OBJECT_TYPES_DICTIONARY:
@@ -220,7 +220,7 @@ def read_object_variable(file: BufferedReader, data_address: int, father_element
 
 			data_address = read_object(file, data_address, object_subelement) # RECURSION FOR OBJECT
 
-		elif var_size == 0x3C:
+		elif var_size == 60:
 			array_type = int.from_bytes(read_bytes(file, data_address, BYTE_SIZE), byteorder='little')
 			data_address += BYTE_SIZE
 			array_size = int.from_bytes(read_bytes(file, data_address, WORD_SIZE), byteorder='little')
@@ -233,7 +233,7 @@ def read_object_variable(file: BufferedReader, data_address: int, father_element
 		elif var_size == 50:
 			result_value = '0x' + ''.join([f'{b:02x}' for b in result_value])
 		elif var_size == 40:
-			result_value = '0x' + ''.join([f'{b:02x}' for b in result_value])
+			result_value = int.from_bytes(result_value, byteorder="little", signed=True) # '0x' + ''.join([f'{b:02x}' for b in result_value])
 		elif var_size == 30:
 			result_value = '0x' + ''.join([f'{b:02x}' for b in result_value])
 			is_poly_empty = True
@@ -258,7 +258,7 @@ def read_object_variable(file: BufferedReader, data_address: int, father_element
 		elif var_size == 2:
 			result_value = int.from_bytes(result_value, byteorder='little')
 		elif var_size == 1:
-			result_value = ctypes.c_int32(int.from_bytes(result_value, byteorder='little')).value 
+			result_value = ctypes.c_int32(int.from_bytes(result_value, byteorder='little', signed=True)).value 
 
 		if var_size not in [60, 70, 30] or (var_size == 30 and is_poly_empty):
 			
