@@ -108,7 +108,6 @@ def get_table_strings(file: BufferedReader, string_table_address: int, string_co
 
 # RETURNS STRING + POINTER AFTER STRING, deprecated
 def get_string(file: BufferedReader, substring_size_address: int, size_of_sizevar: int) -> tuple[str, int]:
-	_: bytes = file.read()
 	substring_value: str = ""
 	current_address: int = substring_size_address
 	
