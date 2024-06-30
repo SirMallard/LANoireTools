@@ -4,10 +4,10 @@ from struct import calcsize, unpack, unpack_from
 import zlib
 import xml.etree.ElementTree as ET
 
-entry_xml_root = None
-entry_xml_segments = None
+entry_xml_root: ET.Element
+entry_xml_segments: ET.Element
 
-entries_dir = None
+entries_dir: str
 
 def align(x: int, a: int) -> int:
 	return (x + (a - 1)) & ~(a - 1)
@@ -21,28 +21,38 @@ def mkdirSafe(dirs: str) -> None:
 
 class BigArchive:
 	class Entry:
-		def __init__(self):
-			self.hash = None
-			self.offset = None
-			self.size1 = None
-			self.size2 = None
-			self.size3 = None
+		hash: int
+		offset: int
+		size1: int
+		size2: int
+		size3: int
+
+		def __init__(self) -> None:
+			pass
 
 	class Chunk:
-		def __init__(self):
-			self.offset = None
-			self.size = None
-			self.flags = None
-			self.size_coeff = None
+		offset: int
+		size: int
+		flags: int
+		size_coeff: int
+
+		def __init__(self) -> None:
+			pass
+
+	endianness: str
+	file: BufferedReader
+	file_size: int
+	file_name: str
+
+	file_table_offset: int
+	entries: list[Entry]
 
 	def __init__(self, file: BufferedReader, endianness: str, file_name: str):
 		self.endianness = endianness
 		self.file = file
-		self.file_size = None
-		self.entries = None
 		self.file_name = file_name
 
-		current_pos = self.file.tell()
+		current_pos: int = self.file.tell()
 		self.file.seek(0, os.SEEK_END)
 		self.file_size = self.file.tell()
 		self.file.seek(current_pos)
@@ -59,12 +69,12 @@ class BigArchive:
 		entry_xml_table = ET.SubElement(entry_xml_root, 'table', attrib={'archive_type': f'{archive_type}', 'num_entries': f'{num_entries}'}) # num_entries is necessary, since their number can be 0
 
 		self.entries = []
-		for i in range(num_entries):
-			entry = self.Entry()
+		for _ in range(num_entries):
+			entry: BigArchive.Entry = self.Entry()
 
 			(entry.hash, entry_offset, entry.size1, entry.size2, entry.size3) = unpack(self.endianness + '5I', self.file.read(calcsize(self.endianness + '5I')))
 			entry_offset_lo: int = entry_offset << 4
-			entry_offset_hi: int = entry_offset >> 28
+			_entry_offset_hi: int = entry_offset >> 28
 			entry.offset = entry_offset_lo
 			# size3 for compressed segs
 
@@ -75,42 +85,42 @@ class BigArchive:
 
 			self.entries.append(entry)
 
-	def dumpEntry(self, entry, data):
-		entry_dir = f'entries/{self.file_name}'
+	def dumpEntry(self, entry: Entry, data: bytes) -> None:
+		entry_dir: str = f'entries/{self.file_name}'
 		mkdirSafe(entry_dir)
 		with open(f'{entry_dir}/0x{entry.hash:08x}', 'wb') as out_file:
 			out_file.write(data)
 
-	def processSingle(self, entry):
-		size = entry.size3
+	def processSingle(self, entry: Entry) -> None:
+		size: int = entry.size3
 		if size == 0:
 			size = entry.size1 + entry.size2
 		self.file.seek(entry.offset)
-		data = self.file.read(size)
+		data: bytes = self.file.read(size)
 		self.dumpEntry(entry, data)
 
 		# 1 case indicates that the segment is proceed with 1 chunk (without multithreading?) 
-		entry_xml_segment = ET.SubElement(entry_xml_segments, 'segment', attrib={'case': '1', 'hash': f'0x{entry.hash:08x}'})
+		entry_xml_segment: ET.Element = ET.SubElement(entry_xml_segments, 'segment', attrib={'case': '1', 'hash': f'0x{entry.hash:08x}'})
 
-	def processMulti(self, entry):
+	def processMulti(self, entry: Entry) -> None:
 		self.file.seek(entry.offset)
-		(magic, type, num_chunks, u0, u1, u2, u3) = unpack(self.endianness + 'I2H4B', self.file.read(calcsize(self.endianness + 'I2H4B')))
+		(_magic, type, num_chunks, u0, u1, u2, u3) = unpack(self.endianness + 'I2H4B', self.file.read(calcsize(self.endianness + 'I2H4B')))
 		print(f'\tType: {type}')
 		print(f'\tNum chunks: {num_chunks}')
 		print(f'\tUnknown: {u0} {u1} {u2} {u3}')
-		data_offset = align(self.file.tell() + u0 * calcsize(self.endianness + 'I') + num_chunks * calcsize(self.endianness + '2H'), 16)
+		data_offset: int = align(self.file.tell() + u0 * calcsize(self.endianness + 'I') + num_chunks * calcsize(self.endianness + '2H'), 16)
 
 		# 2 case indicates that the segment is proceed with many chunks (with multithreading?) 
 		entry_xml_segment = ET.SubElement(entry_xml_segments, 'segment', attrib={'case': '2', 'hash': f'0x{entry.hash:08x}', 'type': f'{type}', 'u0': f'{u0}', 'u1': f'{u1}', 'u2': f'{u2}', 'u3': f'{u3}'})
 
-		uobjs = []
-		for i in range(u0):
+		uobjs: list[int] = []
+		for _ in range(u0):
 			uobj = unpack(self.endianness + 'I', self.file.read(calcsize(self.endianness + 'I')))[0]
 			uobjs.append(uobj)
 
-		chunks = []
-		for i in range(num_chunks):
-			chunk = self.Chunk()
+		chunks: list[BigArchive.Chunk] = []
+		for _ in range(num_chunks):
+			chunk: BigArchive.Chunk = self.Chunk()
 
 			(chunk.size, chunk.flags, chunk.size_coeff) = unpack(self.endianness + 'H2B', self.file.read(calcsize(self.endianness + 'H2B')))
 
@@ -119,18 +129,18 @@ class BigArchive:
 			data_offset += chunk.size
 			chunks.append(chunk)
 
-		data = b''
+		data: bytes = b''
 
 		for i in range(len(uobjs)):
-			uobj = uobjs[i]
+			uobj: int = uobjs[i]
 
 			print(f'\tObject {i}:')
 			print(f'\t\tData: {uobj}')
-			ET.SubElement(entry_xml_segment, 'object').text = uobj
+			ET.SubElement(entry_xml_segment, 'object').text = str(uobj)
 		print('')
 
 		for i in range(len(chunks)):
-			chunk = chunks[i]
+			chunk: BigArchive.Chunk = chunks[i]
 
 			print(f'\tChunk {i}:')
 			print(f'\t\tOffset: {chunk.offset}')
@@ -149,16 +159,16 @@ class BigArchive:
 
 		self.dumpEntry(entry, data)
 
-	def unpack(self):
+	def unpack(self) -> None:
 		global entry_xml_segments, entries_dir
 		entry_xml_segments = ET.SubElement(entry_xml_root, 'segments')
 
-		num_segments = 0
+		num_segments: int = 0
 		entries_dir = f'entries/{self.file_name}'
 		mkdirSafe(entries_dir)
 		with open(f'{entries_dir}/entries.txt', 'w') as entries_list_file:
 			if not self.entries:
-				offset = 0
+				offset: int = 0
 
 				while offset < self.file_table_offset:
 					self.file.seek(offset)
@@ -166,24 +176,24 @@ class BigArchive:
 					magic = unpack(self.endianness + 'I', self.file.read(calcsize(self.endianness + 'I')))[0]
 					self.file.seek(-calcsize(self.endianness + 'I'), os.SEEK_CUR)
 					if magic == unpack_from(b'>I', b'segs')[0]:
-						(magic, type, num_chunks, u0, u1, u2, u3) = unpack(self.endianness + 'I2H4B', self.file.read(calcsize(self.endianness + 'I2H4B')))
+						(_magic, type, num_chunks, u0, u1, u2, u3) = unpack(self.endianness + 'I2H4B', self.file.read(calcsize(self.endianness + 'I2H4B')))
 						print(f'\tType: {type}')
 						print(f'\tNum chunks: {num_chunks}')
 						print(f'\tUnknown: {u0} {u1} {u2} {u3}')
-						data_offset = align(self.file.tell() + u0 * calcsize(self.endianness + 'I') + num_chunks * calcsize(self.endianness + '2H'), 16)
+						data_offset: int = align(self.file.tell() + u0 * calcsize(self.endianness + 'I') + num_chunks * calcsize(self.endianness + '2H'), 16)
 
 						# num_chunks, u1-u3 probably useless; 0 case indicates that the segment is proceed without a entries table. Without hash
 						entry_xml_segment = ET.SubElement(entry_xml_segments, 'segment', attrib={'case': '0', 'type': f'{type}', 'u0': f'{u0}', 'u1': f'{u1}', 'u2': f'{u2}', 'u3': f'{u3}'})
 
-						uobjs = []
-						for i in range(u0):
+						uobjs: list[int] = []
+						for _ in range(u0):
 							uobj = unpack(self.endianness + 'I', self.file.read(calcsize(self.endianness + 'I')))[0]
 							uobjs.append(uobj)
 
-						chunks = []
-						chunks_total_size = 0
-						for i in range(num_chunks):
-							chunk = self.Chunk()
+						chunks: list[BigArchive.Chunk] = []
+						chunks_total_size: int = 0
+						for _ in range(num_chunks):
+							chunk: BigArchive.Chunk = self.Chunk()
 
 							(chunk.size, chunk.flags, chunk.size_coeff) = unpack(self.endianness + 'H2B', self.file.read(calcsize(self.endianness + 'H2B')))
 
@@ -193,18 +203,18 @@ class BigArchive:
 							data_offset += chunk.size
 							chunks.append(chunk)
 
-						data = b''
+						data: bytes = b''
 
 						for i in range(len(uobjs)):
-							uobj = uobjs[i]
+							uobj: int = uobjs[i]
 
 							print(f'\tObject {i}:')
 							print(f'\t\tData: {uobj}')
-							ET.SubElement(entry_xml_segment, 'object').text = uobj
+							ET.SubElement(entry_xml_segment, 'object').text = str(uobj)
 						print('')
 
 						for i in range(len(chunks)):
-							chunk = chunks[i]
+							chunk: BigArchive.Chunk = chunks[i]
 
 							print(f'\tChunk {i}:')
 							print(f'\t\tOffset: {chunk.offset}')
@@ -222,13 +232,13 @@ class BigArchive:
 								data += self.file.read(chunk.size)
 						print(f'Total size: {chunks_total_size}')
 
-						entry_dir = f'segments/{self.file_name}'
+						entry_dir: str = f'segments/{self.file_name}'
 						mkdirSafe(entry_dir)
 						with open(f'{entry_dir}/{num_segments:06d}', 'wb') as fout:
 							fout.write(data)
 
 						while self.file.tell() + 16 < self.file_table_offset:
-							padding = self.file.read(16)
+							padding: bytes = self.file.read(16)
 							if padding != b'X' * 16 and padding != b'\x00' * 16:
 								self.file.seek(-16, os.SEEK_CUR)
 								break
@@ -241,12 +251,12 @@ class BigArchive:
 				print('')
 
 			for i in range(len(self.entries)):
-				entry = self.entries[i]
+				entry: BigArchive.Entry = self.entries[i]
 
 				entries_list_file.write(f'0x{entry.hash:08x}\n')
 				
 				self.file.seek(entry.offset)
-				magic = unpack(self.endianness + 'I', self.file.read(calcsize(self.endianness + 'I')))[0]
+				magic: int = unpack(self.endianness + 'I', self.file.read(calcsize(self.endianness + 'I')))[0]
 				self.file.seek(-calcsize(self.endianness + 'I'), os.SEEK_CUR)
 				if magic == unpack_from(b'>I', b'segs')[0]:
 					print('processing multi...')
@@ -269,7 +279,7 @@ class BigArchive:
 def processFile(file_name: str) -> None:
 	global entry_xml_root
 
-	endianness = None
+	endianness: str
 	if file_name.endswith('.pc'):
 		endianness = '<'
 	elif file_name.endswith('.ps3'):
