@@ -162,16 +162,16 @@ def main():
 
 	try:
 		if sys.argv[1:][1].lower() == 'false':
-			_to_float: bool = False
+			to_float: bool = False
 		else:
-			_to_float = True
+			to_float = True
 	except:
-		_to_float = True
+		to_float = True
 
 	try:
 		unpacker: UberPointerManager = UberPointerManager(file_path)
 		unpacker.print_pointers()
-		# unpacker.print_pointers_values(to_float) # maybe useless in future
+		unpacker.print_pointers_values(to_float) # maybe useless in future
 	except Exception as e:
 		print(f"Error: {e}")
 
