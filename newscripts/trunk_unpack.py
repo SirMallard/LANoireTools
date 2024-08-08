@@ -1,13 +1,13 @@
+from io import BufferedIOBase
 import os, sys
 import struct
-from typing import List, Dict, Tuple
 
 class TrunkFileProcessor:
     def __init__(self, filename: str):
         self.filename = filename
-        self.file_to_read = None
-        self.texture_blocks_offsets: List[Dict[str, int]] = None
-        self.entries_offsets: List[Dict[str, int]] = None
+        self.file_to_read: BufferedIOBase
+        self.texture_blocks_offsets: list[dict[str, int]] = []
+        self.entries_offsets: list[dict[str, int]] = []
 
     def __enter__(self) -> 'TrunkFileProcessor':
         self.file_to_read = open(self.filename, 'rb')
@@ -18,14 +18,14 @@ class TrunkFileProcessor:
         self.entries_offsets = self.get_table_offsets(table_size)
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: str, exc_val: Exception, exc_tb: str):
         self.file_to_read.close()
 
-    def get_table_offsets(self, table_size: int) -> List[Dict[str, int]]:
-        table_data = []
+    def get_table_offsets(self, table_size: int) -> list[dict[str, int]]:
+        table_data: list[dict[str, int]] = []
         for _ in range(table_size):
             crc_value, entry_size, entry_offset_start = struct.unpack('<3I', self.file_to_read.read(struct.calcsize('<3I')))
-            row_data = {
+            row_data: dict[str, int] = {
                 'crc32': crc_value,
                 'entry_size': entry_size,
                 'entry_start': entry_offset_start
@@ -33,12 +33,12 @@ class TrunkFileProcessor:
             table_data.append(row_data)
         return table_data
 
-    def get_texture_block_offsets(self, blocks_size: int) -> List[Dict[str, int]]:
-        texture_blocks = []
+    def get_texture_block_offsets(self, blocks_size: int) -> list[dict[str, int]]:
+        texture_blocks: list[dict[str, int]] = []
         for _ in range(blocks_size):
             block_offset_start, block_size = struct.unpack('<2I', self.file_to_read.read(struct.calcsize('<2I')))
             print(f'{block_offset_start:08x} has {block_size:08x} bytes ({(block_offset_start + block_size):08x})')
-            texture_block = {
+            texture_block: dict[str, int] = {
                 'block_start': block_offset_start,
                 'block_end': block_size
             }
@@ -46,11 +46,11 @@ class TrunkFileProcessor:
         self.file_to_read.read(4)
         return texture_blocks
 
-    def get_real_offset(self, entry_offset: int, blocks_table: List[Dict[str, int]]) -> int:
+    def get_real_offset(self, entry_offset: int, blocks_table: list[dict[str, int]]) -> int:
         if entry_offset % 0x10:
-            blocks_table_index = (entry_offset % 0x10) - 1
-            block_offset_start = blocks_table[blocks_table_index]['block_start']
-            entry_offset_start = block_offset_start + entry_offset & 0xFFFFFFF0
+            blocks_table_index: int = (entry_offset % 0x10) - 1
+            block_offset_start: int = blocks_table[blocks_table_index]['block_start']
+            entry_offset_start: int = block_offset_start + entry_offset & 0xFFFFFFF0
             return entry_offset_start
         else:
             return entry_offset

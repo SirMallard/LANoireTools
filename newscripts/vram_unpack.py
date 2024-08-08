@@ -1,12 +1,13 @@
 import struct
 import os, sys
+from typing import Optional
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 import numpy as np
 
-from typing import List, Tuple, Dict, Optional
-
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
+from mpl_toolkits.mplot3d import Axes3D #type: ignore
+from mpl_toolkits.mplot3d.art3d import Line3DCollection #type: ignore
 
 import xml.etree.ElementTree as ET
 
@@ -14,61 +15,61 @@ from uber_unpack import UberPointerManager
 
 class Block:
     def __init__(self, start: int, end: int):
-        self.start = start
-        self.end = end
+        self.start: int = start
+        self.end: int = end
 
 class VertexBlock(Block):
     def __init__(self, start: int, end: int, offset: int):
         super().__init__(start, end)
-        self.offset = offset
+        self.offset: int = offset
 
 class ModelParser:
-    SHORT_SIZE = 2
-    MAX_SHORT_POSITIVE  = 0x7FFF
-    MAX_USHORT_POSITIVE = 0xFFFF
+    SHORT_SIZE: int = 2
+    MAX_SHORT_POSITIVE: int  = 0x7FFF
+    MAX_USHORT_POSITIVE: int = 0xFFFF
 
     def __init__(self, file_path: str):
-        self.file_path = file_path
+        self.file_path: str = file_path
 
-    def parse_buffers_blocks_offsets(self) -> Tuple[List[VertexBlock], List[Block]]:
+    def parse_buffers_blocks_offsets(self) -> tuple[list[VertexBlock], list[Block]]:
         def find_next_ending(data: bytes, start: int) -> int:
             return data.find(b'\xFF\x7F', start)
 
-        vertex_blocks: List[VertexBlock] = []
-        index_blocks: List[Block] = []
+        vertex_blocks: list[VertexBlock] = []
+        index_blocks: list[Block] = []
 
         with open(self.file_path, 'rb') as file:
-            data = file.read()
+            data: bytes = file.read()
 
-        pos = 0
+        pos: int = 0
         while True:
-            first_ff7f = find_next_ending(data, pos)
+            first_ff7f: int = find_next_ending(data, pos)
             if first_ff7f == -1:
                 break
 
-            second_ff7f = find_next_ending(data, first_ff7f + 2)
+            second_ff7f: int = find_next_ending(data, first_ff7f + 2)
             if second_ff7f == -1:
                 break
 
-            vertex_offset = second_ff7f - first_ff7f
-            third_ff7f = second_ff7f + vertex_offset
+            vertex_offset: int = second_ff7f - first_ff7f
+            third_ff7f: int = second_ff7f + vertex_offset
 
             if data[third_ff7f:third_ff7f+2] == b'\xFF\x7F':
-                vertex_block_start = first_ff7f - 6
-                vertex_block = VertexBlock(vertex_block_start, 0, vertex_offset)
+                vertex_block_start: int = first_ff7f - 6
+                vertex_block: VertexBlock = VertexBlock(vertex_block_start, 0, vertex_offset)
 
-                current_pos = third_ff7f
+                current_pos: int = third_ff7f
                 while data[current_pos:current_pos+2] == b'\xFF\x7F':
                     current_pos += vertex_offset
 
                 vertex_block.end = current_pos - 6
                 vertex_blocks.append(vertex_block)
 
-                index_block_start = vertex_block.end
-                next_ff7f = find_next_ending(data, index_block_start)
+                index_block_start: int = vertex_block.end
+                next_ff7f: int = find_next_ending(data, index_block_start)
 
                 if next_ff7f != -1:
-                    index_block_end = next_ff7f - 6
+                    index_block_end: int = next_ff7f - 6
                     index_blocks.append(Block(index_block_start, index_block_end))
                     pos = next_ff7f
                 else:
@@ -82,21 +83,21 @@ class ModelParser:
     def read_vertex_data(self, start_address: int, 
                          end_address: int, 
                          struct_size: int = 24, 
-                         pos_multiplier: Tuple[float, float, float] = (1.0, 1.0, 1.0), 
-                         vertex_offset: int = 0) -> List[Tuple[float, float, float]]:
-        vertices: List[Tuple[float, float, float]] = []
+                         pos_multiplier: tuple[float, float, float] = (1.0, 1.0, 1.0), 
+                         vertex_offset: int = 0) -> list[tuple[float, float, float]]:
+        vertices: list[tuple[float, float, float]] = []
         with open(self.file_path, 'rb') as f:
             f.seek(start_address)
             data = f.read(end_address - start_address)
-        fmt = '<h'
+        fmt: str = '<h'
        
         for i in range(0, len(data), struct_size):
             if i + self.SHORT_SIZE * 3 > len(data):
                 break
 
-            x = struct.unpack(fmt, data[i+vertex_offset+self.SHORT_SIZE*0:i+vertex_offset+self.SHORT_SIZE*1])[0]
-            y = struct.unpack(fmt, data[i+vertex_offset+self.SHORT_SIZE*1:i+vertex_offset+self.SHORT_SIZE*2])[0]
-            z = struct.unpack(fmt, data[i+vertex_offset+self.SHORT_SIZE*2:i+vertex_offset+self.SHORT_SIZE*3])[0]
+            x: float = struct.unpack(fmt, data[i+vertex_offset+self.SHORT_SIZE*0:i+vertex_offset+self.SHORT_SIZE*1])[0]
+            y: float = struct.unpack(fmt, data[i+vertex_offset+self.SHORT_SIZE*1:i+vertex_offset+self.SHORT_SIZE*2])[0]
+            z: float = struct.unpack(fmt, data[i+vertex_offset+self.SHORT_SIZE*2:i+vertex_offset+self.SHORT_SIZE*3])[0]
 
             # Normalisation
             x = x / 32767.0
@@ -111,33 +112,33 @@ class ModelParser:
 
         return vertices
 
-    def read_index_buffer(self, start_address: int, end_address: int) -> List[int]:
-        indices: List[int] = []
+    def read_index_buffer(self, start_address: int, end_address: int) -> list[int]:
+        indices: list[int] = []
         with open(self.file_path, 'rb') as f:
             f.seek(start_address)
-            data = f.read(end_address - start_address)
-        fmt = '<H'
+            data: bytes = f.read(end_address - start_address)
+        fmt: str = '<H'
         for i in range(0, len(data), 2):
             if i + 2 > len(data):
                 break
-            index = struct.unpack(fmt, data[i:i+2])[0]
+            index: int = struct.unpack(fmt, data[i:i+2])[0]
             indices.append(index)
         return indices
 
-    def read_normals(self, start_address: int, end_address: int, struct_size: int = 24, normal_offset: int = 8) -> List[Tuple[float, float, float]]:
-        normals: List[Tuple[float, float, float]] = []
+    def read_normals(self, start_address: int, end_address: int, struct_size: int = 24, normal_offset: int = 8) -> list[tuple[float, float, float]]:
+        normals: list[tuple[float, float, float]] = []
         with open(self.file_path, 'rb') as f:
             f.seek(start_address)
-            data = f.read(end_address - start_address)
-        fmt = '<h'
+            data: bytes = f.read(end_address - start_address)
+        fmt: str = '<h'
         
         for i in range(0, len(data), struct_size):
             if i + self.SHORT_SIZE * 3 + 8 > len(data):
                 break
 
-            nx = struct.unpack(fmt, data[i+normal_offset+self.SHORT_SIZE*0:i+normal_offset+self.SHORT_SIZE*1])[0] # 8 = xyz + additional bytes
-            ny = struct.unpack(fmt, data[i+normal_offset+self.SHORT_SIZE*1:i+normal_offset+self.SHORT_SIZE*2])[0]
-            nz = struct.unpack(fmt, data[i+normal_offset+self.SHORT_SIZE*2:i+normal_offset+self.SHORT_SIZE*3])[0]
+            nx: float = struct.unpack(fmt, data[i+normal_offset+self.SHORT_SIZE*0:i+normal_offset+self.SHORT_SIZE*1])[0] # 8: float = xyz + additional bytes
+            ny: float = struct.unpack(fmt, data[i+normal_offset+self.SHORT_SIZE*1:i+normal_offset+self.SHORT_SIZE*2])[0]
+            nz: float = struct.unpack(fmt, data[i+normal_offset+self.SHORT_SIZE*2:i+normal_offset+self.SHORT_SIZE*3])[0]
             
             # Normalisation
             nx = nx / 32767.0
@@ -148,19 +149,19 @@ class ModelParser:
 
         return normals
 
-    def read_uvs(self, start_address: int, end_address: int, struct_size: int = 24, uv_offset: int = 0) -> List[Tuple[float, float]]:
-        uvs: List[Tuple[float, float]] = []
+    def read_uvs(self, start_address: int, end_address: int, struct_size: int = 24, uv_offset: int = 0) -> list[tuple[float, float]]:
+        uvs: list[tuple[float, float]] = []
         with open(self.file_path, 'rb') as f:
             f.seek(start_address)
-            data = f.read(end_address - start_address)
-        fmt = '<H'
+            data: bytes = f.read(end_address - start_address)
+        fmt: str = '<H'
         
         for i in range(0, len(data), struct_size):
             if i + struct_size > len(data):
                 break
 
-            u = struct.unpack(fmt, data[i+struct_size-4:i+struct_size-2])[0] # -4 bytes from end of structure
-            v = struct.unpack(fmt, data[i+struct_size-2:i+struct_size])[0]
+            u: float = struct.unpack(fmt, data[i+struct_size-4:i+struct_size-2])[0] # -4 bytes from end of structure
+            v: float = struct.unpack(fmt, data[i+struct_size-2:i+struct_size])[0]
 
             '''
             print(f"uu: {u/32767.0}, uv: {v/32767.0} \
@@ -177,17 +178,17 @@ class ModelParser:
 
 class ModelPlotter:
     @staticmethod
-    def plot_model(vertices: List[Tuple[int, int, int]], indices: List[int], selected_vertices: bool = False, aspect_ratio: Optional[List[Tuple[int, int]]] = None) -> None:
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
+    def plot_model(vertices: list[tuple[int, int, int]], indices: list[int], selected_vertices: bool = False, aspect_ratio: Optional[list[tuple[int, int]]] = None) -> None:
+        fig: Figure = plt.figure() #type: ignore
+        ax: Axes = fig.add_subplot(111, projection='3d') #type: ignore
 
         vertices_np = np.array(vertices)
         xs, ys, zs = vertices_np[:, 0], vertices_np[:, 1], vertices_np[:, 2]
 
         if selected_vertices:
-            ax.scatter(xs, ys, zs, c='r', marker='o')
+            ax.scatter(xs, ys, zs, c='r', marker='o') #type: ignore
 
-        edges: List[List[Tuple[int, int, int]]] = []
+        edges: list[list[tuple[int, int, int]]] = []
 
         for i in range(0, len(indices), 2):
             if i + 1 < len(indices):
@@ -197,7 +198,7 @@ class ModelPlotter:
                     edges.append([vertices[start], vertices[end]])
 
         edge_collection = Line3DCollection(edges, colors='b')
-        ax.add_collection3d(edge_collection)
+        ax.add_collection3d(edge_collection) #type: ignore
 
         if aspect_ratio is None:
             max_range = np.array([xs.max()-xs.min(), ys.max()-ys.min(), zs.max()-zs.min()]).max() / 2.0
@@ -207,23 +208,23 @@ class ModelPlotter:
 
             ax.set_xlim(mid_x - max_range, mid_x + max_range)
             ax.set_ylim(mid_y - max_range, mid_y + max_range)
-            ax.set_zlim(mid_z - max_range, mid_z + max_range)
+            ax.set_zlim(mid_z - max_range, mid_z + max_range) #type: ignore
         else:
             ax.set_xlim(aspect_ratio[0])
             ax.set_ylim(aspect_ratio[1])
-            ax.set_zlim(aspect_ratio[2])
+            ax.set_zlim(aspect_ratio[2]) #type: ignore
 
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.set_zlabel('Z')
-        ax.set_title('Object')
+        ax.set_xlabel('X') #type: ignore
+        ax.set_ylabel('Y') #type: ignore
+        ax.set_zlabel('Z') #type: ignore
+        ax.set_title('Object') #type: ignore
 
-        plt.show()
+        plt.show() #type: ignore
 
-def create_dae_file(vertices: List[Tuple[float, float, float]],
-                    normals: List[Tuple[float, float, float]],
-                    uvs: List[Tuple[float, float]],
-                    indices: List[int],
+def create_dae_file(vertices: list[tuple[float, float, float]],
+                    normals: list[tuple[float, float, float]],
+                    uvs: list[tuple[float, float]],
+                    indices: list[int],
                     output_file: str = "output.dae"):
     
     # root element
@@ -283,20 +284,20 @@ def create_dae_file(vertices: List[Tuple[float, float, float]],
     library_visual_scenes = ET.SubElement(root, "library_visual_scenes")
     visual_scene = ET.SubElement(library_visual_scenes, "visual_scene", id="Scene")
     node = ET.SubElement(visual_scene, "node", id="Mesh")
-    instance_geometry = ET.SubElement(node, "instance_geometry", url="#Mesh")
+    _instance_geometry = ET.SubElement(node, "instance_geometry", url="#Mesh")
 
     # scene
     scene = ET.SubElement(root, "scene")
-    instance_visual_scene = ET.SubElement(scene, "instance_visual_scene", url="#Scene")
+    _instance_visual_scene = ET.SubElement(scene, "instance_visual_scene", url="#Scene")
 
     # to save
     tree = ET.ElementTree(root)
     tree.write(output_file, encoding="utf-8", xml_declaration=True)
 
-def create_full_dae_file(all_vertices: List[List[Tuple[float, float, float]]],
-                    all_normals: List[List[Tuple[float, float, float]]],
-                    all_uvs: List[List[Tuple[float, float]]],
-                    all_indices: List[List[int]],
+def create_full_dae_file(all_vertices: list[list[tuple[float, float, float]]],
+                    all_normals: list[list[tuple[float, float, float]]],
+                    all_uvs: list[list[tuple[float, float]]],
+                    all_indices: list[list[int]],
                     output_file: str = "output.dae"):
     
     # root element
@@ -359,11 +360,11 @@ def create_full_dae_file(all_vertices: List[List[Tuple[float, float, float]]],
     visual_scene = ET.SubElement(library_visual_scenes, "visual_scene", id="Scene")
     for i in range(len(all_vertices)):
         node = ET.SubElement(visual_scene, "node", id=f"Mesh_{i}")
-        instance_geometry = ET.SubElement(node, "instance_geometry", url=f"#Mesh_{i}")
+        _instance_geometry = ET.SubElement(node, "instance_geometry", url=f"#Mesh_{i}")
 
     # scene
     scene = ET.SubElement(root, "scene")
-    instance_visual_scene = ET.SubElement(scene, "instance_visual_scene", url="#Scene")
+    _instance_visual_scene = ET.SubElement(scene, "instance_visual_scene", url="#Scene")
 
     # to save
     tree = ET.ElementTree(root)
@@ -384,8 +385,8 @@ def main() -> None:
         return
     
     uber_file_path = sys.argv[2] if len(sys.argv) > 2 else None
-    vram_dir = os.path.dirname(vram_file_path)
-    vram_cutted_file_name = os.path.splitext(os.path.basename(vram_file_path))[0]
+    vram_dir: str = os.path.dirname(vram_file_path)
+    vram_cutted_file_name: str = os.path.splitext(os.path.basename(vram_file_path))[0]
     vram_cutted_file_name = vram_cutted_file_name[:-4]
 
     if not uber_file_path or not os.path.exists(uber_file_path):
@@ -404,16 +405,16 @@ def main() -> None:
             raise Exception('Uber file not found')
 
     # variables
-    directory_path = 'models'
-    block_index = 0
-    savename = 'null.dae'
-    to_show_plot = False
-    uber_unpacker = UberPointerManager(uber_file_path)
+    directory_path: str = 'models'
+    block_index: int = 0
+    savename: str = 'null.dae'
+    to_show_plot: bool = False
+    uber_unpacker: UberPointerManager = UberPointerManager(uber_file_path)
     pointers, pointers_addresses = uber_unpacker.get_pointer_by_block(1)
-    multipliers = uber_unpacker.get_vertex_positions_multiplier(pointers, pointers_addresses)
+    multipliers: list[tuple[int, int, int]] = uber_unpacker.get_vertex_positions_multiplier(pointers, pointers_addresses)
     print(multipliers)
 
-    parser = ModelParser(vram_file_path)
+    parser: ModelParser = ModelParser(vram_file_path)
     vertex_blocks, index_blocks = parser.parse_buffers_blocks_offsets()
 
     print("Vertex blocks:")
@@ -426,7 +427,7 @@ def main() -> None:
 
     block_index = int(input("\nSelect block number: "))
 
-    path_elements = vram_file_path.split(os.sep)
+    path_elements: list[str] = vram_file_path.split(os.sep)
     
     if len(path_elements) > 1:
         name = path_elements[-2]
@@ -453,23 +454,23 @@ def main() -> None:
         #aspect_ratio = [(-80000, 80000), (-50000, 50000), (-35000, 35000)] # for your own model-ratio
         #ModelPlotter.plot_model(vertices, indices, True, aspect_ratio)
         if to_show_plot:
-            ModelPlotter.plot_model(vertices, indices, True)
+            ModelPlotter.plot_model(vertices, indices, True) #type: ignore
 
     elif block_index == -1:
-        all_vertices = []
-        all_normals = []
-        all_uvs = []
-        all_indices = []
+        all_vertices: list[list[tuple[float, float, float]]] = []
+        all_normals: list[list[tuple[float, float, float]]] = []
+        all_uvs: list[list[tuple[float, float]]] = []
+        all_indices: list[list[int]] = []
 
         for block_index in range(len(vertex_blocks)):
-            vertex_block = vertex_blocks[block_index]
-            index_block = index_blocks[block_index]
+            vertex_block: VertexBlock = vertex_blocks[block_index]
+            index_block: Block = index_blocks[block_index]
 
-            vertices = parser.read_vertex_data(vertex_block.start, vertex_block.end, vertex_block.offset, multipliers[block_index])
-            normals = parser.read_normals(vertex_block.start, vertex_block.end, vertex_block.offset)
-            uvs = parser.read_uvs(vertex_block.start, vertex_block.end, vertex_block.offset)
+            vertices: list[tuple[float, float, float]] = parser.read_vertex_data(vertex_block.start, vertex_block.end, vertex_block.offset, multipliers[block_index])
+            normals: list[tuple[float, float, float]] = parser.read_normals(vertex_block.start, vertex_block.end, vertex_block.offset)
+            uvs: list[tuple[float, float]] = parser.read_uvs(vertex_block.start, vertex_block.end, vertex_block.offset)
 
-            indices = parser.read_index_buffer(index_block.start, index_block.end)
+            indices: list[int] = parser.read_index_buffer(index_block.start, index_block.end)
 
             all_vertices.append(vertices)
             all_normals.append(normals)
@@ -480,8 +481,8 @@ def main() -> None:
 
         '''
         max_index = 0
-        all_vertices: List[Tuple[int, int, int]] = []
-        all_indices: List[int] = []
+        all_vertices: list[tuple[int, int, int]] = []
+        all_indices: list[int] = []
 
         for block_index in range(len(vertex_blocks)):
             vertex_block = vertex_blocks[block_index]
