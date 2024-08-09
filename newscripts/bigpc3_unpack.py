@@ -100,7 +100,7 @@ class BigArchive:
 		self.dumpEntry(entry, data)
 
 		# 1 case indicates that the segment is proceed with 1 chunk (without multithreading?) 
-		entry_xml_segment: ET.Element = ET.SubElement(entry_xml_segments, 'segment', attrib={'case': '1', 'hash': f'0x{entry.hash:08x}'})
+		entry_xml_segment: ET.Element = ET.SubElement(entry_xml_segments, 'segment', attrib={'case': '1', 'hash': f'0x{entry.hash:08x}'}) #type: ignore
 
 	def processMulti(self, entry: Entry) -> None:
 		self.file.seek(entry.offset)
@@ -120,7 +120,7 @@ class BigArchive:
 
 		chunks: list[BigArchive.Chunk] = []
 		for _ in range(num_chunks):
-			chunk: BigArchive.Chunk = self.Chunk()
+			chunk = self.Chunk()
 
 			(chunk.size, chunk.flags, chunk.size_coeff) = unpack(self.endianness + 'H2B', self.file.read(calcsize(self.endianness + 'H2B')))
 
@@ -149,7 +149,7 @@ class BigArchive:
 			print(f'\t\tSize coeff: {chunk.size_coeff}')
 
 			# size & offset probably useless
-			entry_xml_chunk = ET.SubElement(entry_xml_segment, 'chunk', attrib={'flags': f'0x{chunk.flags:02x}', 'size_coefficient': f'{chunk.size_coeff}', 'size': f'{chunk.size}', 'offset': f'{chunk.offset}'})
+			entry_xml_chunk = ET.SubElement(entry_xml_segment, 'chunk', attrib={'flags': f'0x{chunk.flags:02x}', 'size_coefficient': f'{chunk.size_coeff}', 'size': f'{chunk.size}', 'offset': f'{chunk.offset}'}) #type: ignore
 
 			self.file.seek(chunk.offset)
 			if chunk.flags & 0x10:
@@ -193,7 +193,7 @@ class BigArchive:
 						chunks: list[BigArchive.Chunk] = []
 						chunks_total_size: int = 0
 						for _ in range(num_chunks):
-							chunk: BigArchive.Chunk = self.Chunk()
+							chunk = self.Chunk()
 
 							(chunk.size, chunk.flags, chunk.size_coeff) = unpack(self.endianness + 'H2B', self.file.read(calcsize(self.endianness + 'H2B')))
 
@@ -223,7 +223,7 @@ class BigArchive:
 							print(f'\t\tSize coeff: {chunk.size_coeff}')
 
 							# size & offset probably useless
-							entry_xml_chunk = ET.SubElement(entry_xml_segment, 'chunk', attrib={'flags': f'0x{chunk.flags:02x}', 'size_coefficient': f'{chunk.size_coeff}', 'size': f'{chunk.size}', 'offset': f'{chunk.offset}'})
+							entry_xml_chunk = ET.SubElement(entry_xml_segment, 'chunk', attrib={'flags': f'0x{chunk.flags:02x}', 'size_coefficient': f'{chunk.size_coeff}', 'size': f'{chunk.size}', 'offset': f'{chunk.offset}'}) #type: ignore
 
 							self.file.seek(chunk.offset)
 							if chunk.flags & 0x10:
