@@ -14,8 +14,10 @@ class TrunkFileProcessor:
 		self.file_to_read.seek(0, 2)
 		self.file_to_read.seek(0, 0)
 		self.file_to_read.seek(4) # magic
+		# always equals 1 so there is only one texture block
 		block_info_size = struct.unpack('<I', self.file_to_read.read(struct.calcsize('<I')))[0]
 		self.texture_blocks_offsets = self.get_texture_block_offsets(block_info_size)
+		# main data
 		table_size = struct.unpack('<I', self.file_to_read.read(struct.calcsize('<I')))[0]
 		self.entries_offsets = self.get_table_offsets(table_size)
 		return self
@@ -23,6 +25,7 @@ class TrunkFileProcessor:
 	def __exit__(self, exc_type: str, exc_val: Exception, exc_tb: str):
 		self.file_to_read.close()
 
+	# num of files
 	def get_table_offsets(self, table_size: int) -> list[dict[str, int]]:
 		table_data: list[dict[str, int]] = []
 		for _ in range(table_size):
@@ -35,6 +38,7 @@ class TrunkFileProcessor:
 			table_data.append(row_data)
 		return table_data
 
+	# always 1 block
 	def get_texture_block_offsets(self, blocks_size: int) -> list[dict[str, int]]:
 		texture_blocks: list[dict[str, int]] = []
 		for _ in range(blocks_size):
@@ -53,7 +57,7 @@ class TrunkFileProcessor:
 			blocks_table_index: int = (entry_offset % 0x10) - 1
 			block_offset_start: int = blocks_table[blocks_table_index]['block_start']
 			entry_offset_start: int = block_offset_start + entry_offset & 0xFFFFFFF0
-			print(f"Part of {blocks_table_index}: {entry_offset} -> {entry_offset_start}")
+			print(f"\t\tPart of {blocks_table_index}: {entry_offset} -> {entry_offset_start}")
 			return entry_offset_start
 		else:
 			return entry_offset
@@ -70,9 +74,9 @@ class TrunkFileProcessor:
 	def write_entries(self, entry_offset: int, entry_size: int, entry_crc: int):
 		try:
 			with open(self.filename + '_entries' + f'\\0x{entry_crc:08x}', 'wb') as file_to_write:
-				print(f"Writing from {entry_offset} to {entry_offset + entry_size}")
+				print(f"\tWriting from {entry_offset} to {entry_offset + entry_size}")
 				self.file_to_read.seek(0, 2)
-				print(f"Reading: size={self.file_to_read.tell()}, offset={entry_offset}, size={entry_size}")
+				print(f"\tReading: size={self.file_to_read.tell()}, offset={entry_offset}, size={entry_size}")
 				self.file_to_read.seek(entry_offset)
 				entry_data = self.file_to_read.read(entry_size)
 				file_to_write.write(entry_data)
