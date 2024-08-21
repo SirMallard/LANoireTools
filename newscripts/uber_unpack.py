@@ -54,6 +54,7 @@ class UberPointerManager:
 					self.pointers_addresses.append(final_pointer)
 					self.pointers.append(self._read_uint32(final_pointer) + global_data_pointer)
 					self.pointers_blocks.append(self.pointer_block_data_type)
+					print(current_element_value, current_pointer_address, self.main_block_pointer)
 
 			pointer_block_to_end_byte = current_element & 2
 			pointer_block_end = current_element + pointer_block_to_end_byte
@@ -67,7 +68,7 @@ class UberPointerManager:
 			if pointer_to_shifted_value:
 				global_data_pointer = self._read_uint32(pointer_to_shifted_value + 4)
 			else:
-				global_data_pointer = 0
+				global_data_pointer = self.main_block_pointer
 
 			list_size_offset = pointer_block_end + 4
 
