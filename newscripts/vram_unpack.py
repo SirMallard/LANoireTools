@@ -394,8 +394,10 @@ def main() -> None:
             os.path.join(vram_dir, os.path.basename(uber_file_path)) if uber_file_path else None,
             os.path.join(vram_dir, vram_cutted_file_name + 'Main'),
             os.path.join(vram_dir, vram_cutted_file_name + 'Main.uber'),
+            os.path.join(vram_dir, vram_cutted_file_name + 'Main.pack'),
             os.path.join(vram_dir, 'GraphicsMain'), # for exceptional case
-            os.path.join(vram_dir, 'GraphicsMain.uber')
+            os.path.join(vram_dir, 'GraphicsMain.uber'),
+            os.path.join(vram_dir, 'GraphicsMain.pack')
         ]
         for path in potential_paths:
             if path and os.path.exists(path):
